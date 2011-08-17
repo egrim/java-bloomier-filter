@@ -19,7 +19,7 @@ public class MutableBloomierFilterTest {
 			map.put(i, i);
 		}
 		
-		uut = new MutableBloomierFilter<Integer, Integer>(map, map.keySet().size()*10, 10, 700, 10000);
+		uut = new MutableBloomierFilter<Integer, Integer>(map, map.keySet().size()*10, 10, 32, 10000);
 	}
 
 	@Test

@@ -1,36 +1,44 @@
 package edu.utexas.ece.mpc.bloomier;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectStreamException;
-import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.ObjectBuffer;
+
 import edu.utexas.ece.mpc.bloomier.internal.BloomierHasher;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatch;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatchFinder;
 
-public class ImmutableBloomierFilter<K, V extends Serializable> {
-	final protected int m;
-	final protected int k;
-	final protected int q;
+public class ImmutableBloomierFilter<K, V> {
+	protected final Kryo kryo;
+	protected final ObjectBuffer kryoSerializer;
+	
+	protected final Class<V> valueClass;
+	
+	protected final int m;
+	protected final int k;
+	protected final int q;
 	
 	protected long hashSeed;
 	protected BloomierHasher<K> hasher;
-	
+		
 	private byte[][] table;
 	private int tableEntrySize;
 
-	private ImmutableBloomierFilter(int m, int k, int q) {
+	private ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass) {
+		kryo = new Kryo();
+		kryo.setRegistrationOptional(true);
+		kryoSerializer = new ObjectBuffer(kryo, 1, Integer.MAX_VALUE);
+		
 		this.m = m;
 		this.k = k;
 		this.q = q;
+		
+		this.valueClass = valueClass;
 		
 		// Create table with correctly sized byte arrays for encoded entries
 		tableEntrySize = q/8;
@@ -39,8 +47,8 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 		// The rest of the initialization will be handled by create() in public constructors
 	}
 	
-	public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, long timeoutMs) throws TimeoutException {
-		this(m, k, q);
+	public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass, long timeoutMs) throws TimeoutException {
+		this(m, k, q, valueClass);
 		
 		OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q);
 		OrderAndMatch<K> oam = oamf.find(timeoutMs);
@@ -48,8 +56,8 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 	}
 	
 	// This package private constructor can be used by entities that want to supply their own OrderAndMatch
-	ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, OrderAndMatch<K> oam) {
-		this(m, k, q);
+	ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass, OrderAndMatch<K> oam) {
+		this(m, k, q, valueClass);
 		
 		create(map, oam);
 	}
@@ -100,6 +108,7 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 	}
 
 	private void byteArrayXor(byte[] resultArray, byte[] xorArray) {
+		// TODO: may want to rewrite this to more intuitively handle hetero-sized arrays
 		int length = Math.min(resultArray.length, xorArray.length);
 		
 		for (int i=0; i<length; i++) {
@@ -108,48 +117,26 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 	}
 
 	private byte[] encode(V value) {
-		ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-		try {
-			ObjectOutputStream outStream = new ObjectOutputStream(byteStream);
-			outStream.writeObject(value);
-		} catch (IOException e) {
-			// Shouldn't ever happen
-			throw new IllegalStateException("Value could not be encoded", e);
+		byte[] serializedValue = kryoSerializer.writeObjectData(value);
+		if (serializedValue.length > tableEntrySize){
+			throw new IllegalArgumentException("Encoded values are too big to fit in table (q=" + q + "; must be >= " + serializedValue.length * Byte.SIZE + ")");
 		}
 		
-		byte[] encodedArray = byteStream.toByteArray();
-		if (encodedArray.length > tableEntrySize){
-			throw new IllegalArgumentException("Encoded values are too big to fit in table (q=" + q + "; must be >= " + encodedArray.length * Byte.SIZE + ")");
-		}
-		return Arrays.copyOf(byteStream.toByteArray(), tableEntrySize);
+		// Pad with zeros up to required tableEntrySize
+		return Arrays.copyOf(serializedValue, tableEntrySize);
 	}
 
-	@SuppressWarnings("unchecked")
 	private V decode(byte[] value) {
-		V result = null;
-		ByteArrayInputStream byteStream = new ByteArrayInputStream(value);
-		try {
-			ObjectInputStream inStream = new ObjectInputStream(byteStream);
-			result = (V) inStream.readObject();
-			
-			// Check leftovers (all must be zero or this is a detected false positive)
-			byte[] leftovers = new byte[value.length];
-			int leftoverCount = byteStream.read(leftovers);
-			for (int i=0; i < leftoverCount; i++) {
-				if (leftovers[i] != 0x00) {
-					return null;
-				}
-			}
-		} catch (ObjectStreamException e) {
-			return null; // Okay; probably means lookup of key not in structure
-		} catch (IOException e) {
-			// Should not happen
-			throw new IllegalStateException("Could not decode value", e);
-		} catch (ClassNotFoundException e) {
-			// Convert to runtime exception
-			throw new RuntimeException("Could not decode due to missing class", e);
-		}
+		ByteBuffer buffer = ByteBuffer.wrap(value);
+		V result = (V) kryo.readObjectData(buffer, valueClass);
 		
+		// Check leftovers (all must be zero of this is a detected false positive)
+		while (buffer.hasRemaining()) {
+			if (buffer.get() != 0) {
+				return null;
+			}
+		}
+
 		return result;
 	}
 }

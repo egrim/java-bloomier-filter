@@ -23,7 +23,7 @@ public class ImmutableBloomierFilterTest {
 			map.put(i,i);
 		}
 		
-		uut = new ImmutableBloomierFilter<Integer, Integer>(map, map.keySet().size()*10, 10, 700, 10000);
+		uut = new ImmutableBloomierFilter<Integer, Integer>(map, map.keySet().size()*10, 10, 32, Integer.class, 10000);
 	}
 	
 	@Test

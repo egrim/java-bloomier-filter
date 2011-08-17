@@ -1,7 +1,5 @@
 package edu.utexas.ece.mpc.bloomier;
 
-import java.io.Serializable;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +9,7 @@ import edu.utexas.ece.mpc.bloomier.internal.BloomierHasher;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatch;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatchFinder;
 
-public class MutableBloomierFilter<K, V extends Serializable> {
+public class MutableBloomierFilter<K, V> {
 	private ImmutableBloomierFilter<K, Integer> tauTable;
 	private V[] valueTable;
 	
@@ -22,12 +20,12 @@ public class MutableBloomierFilter<K, V extends Serializable> {
 	private List<Integer> tau;
 
 	@SuppressWarnings("unchecked")
-	public MutableBloomierFilter(Map<K, V> map, int m, int k, int q,
+	public MutableBloomierFilter(Map<K, V> map, int m, int k, int q, 
 			long timeoutMs) throws TimeoutException {
 		OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q);
 		OrderAndMatch<K> oam = oamf.find(timeoutMs);
 		
-		valueTable = (V[]) new Serializable[m];
+		valueTable = (V[]) new Object[m];
 		
 		hashSeed = oam.getHashSeed();
 		hasher = new BloomierHasher<K>(hashSeed, m, k, q);
@@ -47,7 +45,7 @@ public class MutableBloomierFilter<K, V extends Serializable> {
 			valueTable[hashIndex] = value;
 		}
 		
-		tauTable = new ImmutableBloomierFilter<K, Integer>(tauMap, m, k, q, oam);
+		tauTable = new ImmutableBloomierFilter<K, Integer>(tauMap, m, k, q, Integer.class, oam);
 	}
 	
 	public V get(K key) {
