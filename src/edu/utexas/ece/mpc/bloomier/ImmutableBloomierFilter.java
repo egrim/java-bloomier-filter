@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2011, The University of Texas at Austin
+ * Produced in the Mobile and Pervasive Computing Lab
+ * Originally written by Evan Grim
+ * 
+ * All rights reserved.
+ * 
+ * See included LICENSE.txt for licensing details
+ * 
+ */
+
 package edu.utexas.ece.mpc.bloomier;
 
 import java.nio.ByteBuffer;
