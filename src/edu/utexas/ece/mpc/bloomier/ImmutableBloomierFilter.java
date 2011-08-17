@@ -27,43 +27,37 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 	private byte[][] table;
 	private int tableEntrySize;
 
-	public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, long timeoutMs) throws TimeoutException {
-		this(map, m, k, q, new OrderAndMatchFinder<K>(map.keySet(), m, k, q).find(timeoutMs)); // TODO: find a more elegant solution that doesn't cram this all into one statement
-	}
-	
-	// This package private constructor can be used by entities that want to supply their own OrderAndMatch
-	ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, OrderAndMatch<K> oam) {
+	private ImmutableBloomierFilter(int m, int k, int q) {
 		this.m = m;
 		this.k = k;
 		this.q = q;
 		
 		// Create table with correctly sized byte arrays for encoded entries
 		tableEntrySize = q/8;
-		table = new byte[m][tableEntrySize];		
-
+		table = new byte[m][tableEntrySize];
+		
+		// The rest of the initialization will be handled by create() in public constructors
+	}
+	
+	public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, long timeoutMs) throws TimeoutException {
+		this(m, k, q);
+		
+		OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q);
+		OrderAndMatch<K> oam = oamf.find(timeoutMs);
+		create(map, oam);
+	}
+	
+	// This package private constructor can be used by entities that want to supply their own OrderAndMatch
+	ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, OrderAndMatch<K> oam) {
+		this(m, k, q);
+		
+		create(map, oam);
+	}
+		
+	private void create(Map<K, V> map, OrderAndMatch<K> oam) {
 		hashSeed = oam.getHashSeed();
 		hasher = new BloomierHasher<K>(hashSeed, m, k, q);
 
-		populateTable(map, oam);
-		
-		// TODO: if hasher caches hashes, clear cache here (to reclaim memory)
-	}
-	
-	public V get(K key) {
-		int[] neighborhood = hasher.getNeighborhood(key);
-		byte[] mask = hasher.getM(key);
-		
-		byte[] resultArray = new byte[tableEntrySize];
-		
-		byteArrayXor(resultArray, mask);
-		for (int hash: neighborhood) {
-			byteArrayXor(resultArray, table[hash]);
-		}
-		
-		return decode(resultArray);
-	}
-
-	protected void populateTable(Map<K, V> map, OrderAndMatch<K> oam) {
 		List<K> pi = oam.getPi();
 		List<Integer> tau = oam.getTau();
 		
@@ -87,6 +81,22 @@ public class ImmutableBloomierFilter<K, V extends Serializable> {
 			
 			table[indexOfStorage] = valueToStore;
 		}
+		
+		// TODO: if hasher caches hashes, clear cache here (to reclaim memory)
+	}
+	
+	public V get(K key) {
+		int[] neighborhood = hasher.getNeighborhood(key);
+		byte[] mask = hasher.getM(key);
+		
+		byte[] resultArray = new byte[tableEntrySize];
+		
+		byteArrayXor(resultArray, mask);
+		for (int hash: neighborhood) {
+			byteArrayXor(resultArray, table[hash]);
+		}
+		
+		return decode(resultArray);
 	}
 
 	private void byteArrayXor(byte[] resultArray, byte[] xorArray) {
