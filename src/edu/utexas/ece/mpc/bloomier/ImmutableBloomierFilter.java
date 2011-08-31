@@ -37,8 +37,8 @@ public class ImmutableBloomierFilter<K, V> {
 	protected long hashSeed;
 	protected BloomierHasher<K> hasher;
 		
-	private byte[][] table;
-	private int tableEntrySize;
+	protected byte[][] table;
+	protected int tableEntrySize;
 
 	private ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass) {
 		kryo = new Kryo();
@@ -73,6 +73,16 @@ public class ImmutableBloomierFilter<K, V> {
 		create(map, oam);
 	}
 		
+	protected ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass, long hashSeed,
+			byte[][] table) {
+		this(m, k, q, valueClass);
+		
+		this.hashSeed = hashSeed;
+		this.table = table;
+		
+		hasher = new BloomierHasher<K>(hashSeed, m, k, q);
+	}
+
 	private void create(Map<K, V> map, OrderAndMatch<K> oam) {
 		hashSeed = oam.getHashSeed();
 		hasher = new BloomierHasher<K>(hashSeed, m, k, q);
@@ -116,6 +126,26 @@ public class ImmutableBloomierFilter<K, V> {
 		}
 		
 		return decode(resultArray);
+	}
+
+	public int getM() {
+		return m;
+	}
+
+	public int getK() {
+		return k;
+	}
+
+	public int getQ() {
+		return q;
+	}
+
+	public long getHashSeed() {
+		return hashSeed;
+	}
+
+	public byte[][] getTable() {
+		return table;
 	}
 
 	private void byteArrayXor(byte[] resultArray, byte[] xorArray) {
