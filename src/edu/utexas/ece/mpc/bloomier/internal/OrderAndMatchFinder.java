@@ -41,6 +41,13 @@ public class OrderAndMatchFinder<K> {
 		this.k = k;
 		this.q = q;
 	}
+	
+	public OrderAndMatchFinder(Collection<K> keys, int m, int k, int q, long hashSeedHint) {
+		this(keys, m, k, q);
+		
+		hashSeed = hashSeedHint;
+	}
+
 
 	public OrderAndMatch<K> find(long timeoutMs) throws TimeoutException {
 		final AtomicBoolean hasTimedOut = new AtomicBoolean(false);
@@ -57,7 +64,7 @@ public class OrderAndMatchFinder<K> {
 				}, timeoutMs);
 			}
 				
-			while (hashSeed <= Long.MAX_VALUE) {
+			for (long i=0; i < Long.MAX_VALUE; i++) {
 				// First check for timeout
 				if (hasTimedOut.get()) {
 					throw new TimeoutException("Could not find order and matching for key set in alloted time with specified parameters");
@@ -73,7 +80,7 @@ public class OrderAndMatchFinder<K> {
 					break;
 				}
 				
-				hashSeed++;
+				hashSeed++; // will wrap around if a hashSeedHint was provided
 			}
 			
 		} finally {

@@ -76,7 +76,7 @@ public class BloomierHasher<K> {
 		private Queue<Byte> buffer;
 	
 		public HashInputStream(K key) {
-			this.data = ByteBuffer.allocate(Integer.SIZE/Byte.SIZE).putInt(key.hashCode()).array();
+			this.data = ByteBuffer.allocate(Integer.SIZE/Byte.SIZE).putInt(key.hashCode()).array(); // TODO: use .toString instead of hashCode to get a better hash range
 			this.salt = hashSeed;
 			
 			try {

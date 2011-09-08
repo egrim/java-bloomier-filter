@@ -65,7 +65,15 @@ public class ImmutableBloomierFilter<K, V> {
 		OrderAndMatch<K> oam = oamf.find(timeoutMs);
 		create(map, oam);
 	}
-	
+
+	public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass, long timeoutMs, long hashSeedHint) throws TimeoutException {
+		this(m, k, q, valueClass);
+		
+		OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q, hashSeedHint);
+		OrderAndMatch<K> oam = oamf.find(timeoutMs);
+		create(map, oam);
+	}
+
 	// This package private constructor can be used by entities that want to supply their own OrderAndMatch
 	ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass, OrderAndMatch<K> oam) {
 		this(m, k, q, valueClass);
@@ -81,6 +89,10 @@ public class ImmutableBloomierFilter<K, V> {
 		this.table = table;
 		
 		hasher = new BloomierHasher<K>(hashSeed, m, k, q);
+	}
+	
+	protected ImmutableBloomierFilter(ImmutableBloomierFilter<K, V> orig) {
+		this(orig.m, orig.k, orig.q, orig.valueClass, orig.hashSeed, orig.table); // TODO: it should be okay to share the underlying table since it's immutable, but beware this might not be true
 	}
 
 	private void create(Map<K, V> map, OrderAndMatch<K> oam) {
