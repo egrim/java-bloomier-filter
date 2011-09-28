@@ -67,7 +67,8 @@ public class OrderAndMatchFinder<K> {
                 // First check for timeout
                 if (hasTimedOut.get()) {
                     throw new TimeoutException(
-                                               "Could not find order and matching for key set in alloted time with specified parameters");
+                                               String.format("Could not find order and matching for key set in alloted time with specified parameters (m=%d;k=%d;q=%d)",
+                                                             m, k, q));
                 }
 
                 hasher = new BloomierHasher<K>(hashSeed, m, k, q);
@@ -109,6 +110,10 @@ public class OrderAndMatchFinder<K> {
     }
 
     private boolean findMatch(Collection<K> remainingKeys) {
+        if (remainingKeys.isEmpty()) {
+            return true;
+        }
+
         Queue<K> piQueue = new LinkedList<K>();
         Queue<Integer> tauQueue = new LinkedList<Integer>();
 

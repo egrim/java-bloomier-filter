@@ -19,6 +19,7 @@ import java.util.concurrent.TimeoutException;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.ObjectBuffer;
+import com.esotericsoftware.kryo.SerializationException;
 
 import edu.utexas.ece.mpc.bloomier.internal.BloomierHasher;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatch;
@@ -43,7 +44,8 @@ public class ImmutableBloomierFilter<K, V> {
     private ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass) {
         kryo = new Kryo();
         kryo.setRegistrationOptional(true);
-        kryoSerializer = new ObjectBuffer(kryo, 1, Integer.MAX_VALUE);
+        kryoSerializer = new ObjectBuffer(kryo, DEFAULT_OBJECT_BUFFER_INITIAL_SIZE,
+                                          Integer.MAX_VALUE);
 
         this.m = m;
         this.k = k;
@@ -59,7 +61,7 @@ public class ImmutableBloomierFilter<K, V> {
     }
 
     public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass,
-                                   long timeoutMs) throws TimeoutException {
+                                   int timeoutMs) throws TimeoutException {
         this(m, k, q, valueClass);
 
         OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q);
@@ -68,7 +70,22 @@ public class ImmutableBloomierFilter<K, V> {
     }
 
     public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass,
-                                   long timeoutMs, long hashSeedHint) throws TimeoutException {
+                                   long hashSeedHint) {
+        this(m, k, q, valueClass);
+
+        OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q,
+                                                                 hashSeedHint);
+        OrderAndMatch<K> oam;
+        try {
+            oam = oamf.find(Integer.MAX_VALUE);
+        } catch (TimeoutException e) {
+            throw new AssertionError("Should never be possible");
+        }
+        create(map, oam);
+    }
+
+    public ImmutableBloomierFilter(Map<K, V> map, int m, int k, int q, Class<V> valueClass,
+                                   int timeoutMs, long hashSeedHint) throws TimeoutException {
         this(m, k, q, valueClass);
 
         OrderAndMatchFinder<K> oamf = new OrderAndMatchFinder<K>(map.keySet(), m, k, q,
@@ -85,7 +102,7 @@ public class ImmutableBloomierFilter<K, V> {
         create(map, oam);
     }
 
-    protected ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass, long hashSeed,
+    public ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass, long hashSeed,
                                       byte[][] table) {
         this(m, k, q, valueClass);
 
@@ -95,7 +112,7 @@ public class ImmutableBloomierFilter<K, V> {
         hasher = new BloomierHasher<K>(hashSeed, m, k, q);
     }
 
-    protected ImmutableBloomierFilter(ImmutableBloomierFilter<K, V> orig) {
+    public ImmutableBloomierFilter(ImmutableBloomierFilter<K, V> orig) {
         this(orig.m, orig.k, orig.q, orig.valueClass, orig.hashSeed, orig.table); // TODO: it should be okay to share
                                                                                   // the underlying table since it's
                                                                                   // immutable, but beware this might
@@ -190,7 +207,12 @@ public class ImmutableBloomierFilter<K, V> {
 
     private V decode(byte[] value) {
         ByteBuffer buffer = ByteBuffer.wrap(value);
-        V result = (V) kryo.readObjectData(buffer, valueClass);
+        V result;
+        try {
+            result = (V) kryo.readObjectData(buffer, valueClass);
+        } catch (SerializationException e) {
+            return null; // Serialization exception likely caused by trying to decode non existent entry
+        }
 
         // Check leftovers (all must be zero of this is a detected false positive)
         while (buffer.hasRemaining()) {
@@ -201,4 +223,6 @@ public class ImmutableBloomierFilter<K, V> {
 
         return result;
     }
+
+    private static final int DEFAULT_OBJECT_BUFFER_INITIAL_SIZE = 2 * 1024;
 }

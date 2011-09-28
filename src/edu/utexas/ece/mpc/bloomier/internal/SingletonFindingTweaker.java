@@ -26,11 +26,17 @@ public class SingletonFindingTweaker<K> {
         nonSingletons = new HashSet<Integer>();
 
         for (K key: keys) {
-            for (int hash: hasher.getNeighborhood(key)) {
+            int[] neighborhood = hasher.getNeighborhood(key);
+
+            // First pass - see if any currently qualify as singletons
+            for (int hash: neighborhood) {
                 if (hashesSeen.contains(hash)) {
                     nonSingletons.add(hash);
                 }
+            }
 
+            // Second pass - add to seen hashes
+            for (int hash: neighborhood) {
                 hashesSeen.add(hash);
             }
         }
