@@ -13,8 +13,10 @@ package edu.utexas.ece.mpc.bloomier;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -140,7 +142,13 @@ public class ImmutableBloomierFilter<K, V> {
             byteArrayXor(valueToStore, encodedValue);
             byteArrayXor(valueToStore, mask);
 
+            // TODO: Duplicate neighborhood hashes cause problems - temp fix: dedup
+            Set<Integer> neighborhoodSet = new HashSet<Integer>();
             for (int hash: neighborhood) {
+                neighborhoodSet.add(hash);
+            }
+
+            for (int hash: neighborhoodSet) {
                 byteArrayXor(valueToStore, table[hash]);
             }
 
@@ -157,7 +165,14 @@ public class ImmutableBloomierFilter<K, V> {
         byte[] resultArray = new byte[tableEntrySize];
 
         byteArrayXor(resultArray, mask);
+
+        // TODO: Duplicate neighborhood hashes cause problems - temp fix: dedup
+        Set<Integer> neighborhoodSet = new HashSet<Integer>();
         for (int hash: neighborhood) {
+            neighborhoodSet.add(hash);
+        }
+
+        for (int hash: neighborhoodSet) {
             byteArrayXor(resultArray, table[hash]);
         }
 
