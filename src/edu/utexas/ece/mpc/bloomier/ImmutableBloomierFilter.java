@@ -56,7 +56,7 @@ public class ImmutableBloomierFilter<K, V> {
         this.valueClass = valueClass;
 
         // Create table with correctly sized byte arrays for encoded entries
-        tableEntrySize = q / 8;
+        tableEntrySize = q / 8; // FIXME: why isn't this + 1?!
         table = new byte[m][tableEntrySize];
 
         // The rest of the initialization will be handled by create() in public constructors
