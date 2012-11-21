@@ -36,32 +36,59 @@ public class BloomierHasher<K> {
     }
 
     public int[] getNeighborhood(K key) {
-        DataInputStream stream = new DataInputStream(new HashInputStream(key));
-
-        int[] hashes = new int[k];
-        for (int i = 0; i < hashes.length; i++) {
-            try {
-                hashes[i] = Math.abs(stream.readInt()) % m; // Massage value to be in [0,m)
-            } catch (IOException e) {
-                // Shouldn't be possible
-                throw new IllegalStateException("Hash generation failed", e);
-            }
-        }
+    	DataInputStream stream = null;
+    	final int[] hashes = new int[k];
+    	try {
+	        stream = new DataInputStream(new HashInputStream(key));
+	
+	        for (int i = 0; i < hashes.length; i++) {
+	            try {
+	                hashes[i] = Math.abs(stream.readInt()) % m; // Massage value to be in [0,m)
+	            } catch (IOException e) {
+	                // Shouldn't be possible
+	                throw new IllegalStateException("Hash generation failed", e);
+	            }
+	        }
+    	} finally {
+    		if(stream != null) {
+    			try
+				{
+					stream.close();
+				} catch (IOException e)
+				{
+					// just ignore failing to close
+				}
+    		}
+    	}
 
         return hashes;
     }
 
     public byte[] getM(K key) {
-        DataInputStream stream = new DataInputStream(new HashInputStream(key));
-
+        DataInputStream stream = null;
         byte[] hashes = new byte[q / Byte.SIZE + 1];
-        for (int i = 0; i < hashes.length; i++) {
-            try {
-                hashes[i] = stream.readByte();
-            } catch (IOException e) {
-                // Shouldn't be possible
-                throw new IllegalStateException("Hash generation failed", e);
-            }
+
+        try {
+	        stream = new DataInputStream(new HashInputStream(key));
+	
+	        for (int i = 0; i < hashes.length; i++) {
+	            try {
+	                hashes[i] = stream.readByte();
+	            } catch (IOException e) {
+	                // Shouldn't be possible
+	                throw new IllegalStateException("Hash generation failed", e);
+	            }
+	        }
+        } finally {
+        	if(stream != null) {
+        		try
+				{
+					stream.close();
+				} catch (IOException e)
+				{
+					// just ignore
+				}
+        	}
         }
 
         return hashes;

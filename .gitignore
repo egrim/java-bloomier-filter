@@ -37,4 +37,10 @@ local.properties
 # PDT-specific
 .buildpath
 
+# Maven
+target
 
+# more Eclipse stuff
+.classpath
+.project
+.settings
