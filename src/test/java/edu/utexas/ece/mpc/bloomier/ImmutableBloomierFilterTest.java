@@ -11,29 +11,38 @@
 
 package edu.utexas.ece.mpc.bloomier;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.*;
 
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 
 import edu.utexas.ece.mpc.bloomier.ImmutableBloomierFilter;
 
 public class ImmutableBloomierFilterTest {
     ImmutableBloomierFilter<Integer, Integer> uut;
+    
+    @Rule
+    public final ErrorCollector errorCollector = new ErrorCollector();
+
+	private final HashMap<Integer, Integer> originalMap = new HashMap<Integer, Integer>();
 
     @Before
     public void setUp() throws Exception {
-        Map<Integer, Integer> map = new HashMap<Integer, Integer>();
 
         for (int i = 0; i < 1000; i++) {
-            map.put(i, i);
+            originalMap.put(i, i);
         }
 
-        uut = new ImmutableBloomierFilter<Integer, Integer>(map, map.keySet().size() * 10, 10, 32,
+        uut = new ImmutableBloomierFilter<Integer, Integer>(originalMap, originalMap.keySet().size() * 10, 10, 32,
                                                             Integer.class, 10000);
     }
 
@@ -47,5 +56,13 @@ public class ImmutableBloomierFilterTest {
         Integer result = uut.get(2000);
         Assert.assertNull(result);
     }
+    
+    @Test
+	public void testAllMembers() throws Exception {
+    	final Set<Entry<Integer, Integer>> entrySet = this.originalMap.entrySet();
+    	for(Entry<Integer, Integer> entry : entrySet) {
+    		this.errorCollector.checkThat(this.uut.get(entry.getKey()), is(equalTo(entry.getValue())));
+    	}
+	}
 
 }

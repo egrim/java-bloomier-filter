@@ -73,7 +73,7 @@ public class MutableBloomierFilter<K, V> {
         Integer iota = tauTable.get(key);
 
         if (iota == null) {
-            throw new IllegalArgumentException("Supplied key (" + key + ") is involid");
+            throw new IllegalArgumentException("Supplied key (" + key + ") is invalid");
         }
 
         Integer hashIndex = hasher.getNeighborhood(key)[iota];
