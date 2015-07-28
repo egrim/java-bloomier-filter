@@ -11,6 +11,7 @@
 
 package edu.utexas.ece.mpc.bloomier;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -20,8 +21,9 @@ import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.ObjectBuffer;
-import com.esotericsoftware.kryo.SerializationException;
+import com.esotericsoftware.kryo.io.ByteBufferInput;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
 
 import edu.utexas.ece.mpc.bloomier.internal.BloomierHasher;
 import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatch;
@@ -29,7 +31,7 @@ import edu.utexas.ece.mpc.bloomier.internal.OrderAndMatchFinder;
 
 public class ImmutableBloomierFilter<K, V> {
     protected final Kryo kryo;
-    protected final ObjectBuffer kryoSerializer;
+    protected final Output kryoSerializer;
 
     protected final Class<V> valueClass;
 
@@ -45,9 +47,7 @@ public class ImmutableBloomierFilter<K, V> {
 
     private ImmutableBloomierFilter(int m, int k, int q, Class<V> valueClass) {
         kryo = new Kryo();
-        kryo.setRegistrationOptional(true);
-        kryoSerializer = new ObjectBuffer(kryo, DEFAULT_OBJECT_BUFFER_INITIAL_SIZE,
-                                          Integer.MAX_VALUE);
+        kryoSerializer = new Output(DEFAULT_OBJECT_BUFFER_INITIAL_SIZE, Integer.MAX_VALUE);
 
         this.m = m;
         this.k = k;
@@ -208,26 +208,28 @@ public class ImmutableBloomierFilter<K, V> {
         }
     }
 
-    private byte[] encode(V value) {
-        byte[] serializedValue = kryoSerializer.writeObjectData(value);
-        if (serializedValue.length > tableEntrySize) {
-            throw new IllegalArgumentException("Encoded values are too big to fit in table (q=" + q
-                                               + "; must be >= " + serializedValue.length
-                                               * Byte.SIZE + ")");
-        }
+	private byte[] encode(V value) {
+		ByteArrayOutputStream baos 	= new ByteArrayOutputStream();
+		try(Output output = new Output(baos)) {
+			kryo.writeObject(output, value);
+			output.close();
+			byte[] serializedValue = baos.toByteArray();
+			if (serializedValue.length > tableEntrySize) {
+				throw new IllegalArgumentException(
+						"Encoded values are too big to fit in table (q=" + q
+								+ "; must be >= " + serializedValue.length
+								* Byte.SIZE + ")");
+			}
 
-        // Pad with zeros up to required tableEntrySize
-        return Arrays.copyOf(serializedValue, tableEntrySize);
-    }
+			// Pad with zeros up to required tableEntrySize
+			return Arrays.copyOf(serializedValue, tableEntrySize);
+		}
+	}
 
     private V decode(byte[] value) {
         ByteBuffer buffer = ByteBuffer.wrap(value);
-        V result;
-        try {
-            result = (V) kryo.readObjectData(buffer, valueClass);
-        } catch (SerializationException e) {
-            return null; // Serialization exception likely caused by trying to decode non existent entry
-        }
+    	Input input = new ByteBufferInput(buffer);
+        V result = kryo.readObject(input, valueClass);
 
         // Check leftovers (all must be zero of this is a detected false positive)
         while (buffer.hasRemaining()) {

@@ -88,8 +88,8 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.0</version>
           <configuration>
-            <source>1.6</source>
-            <target>1.6</target>
+            <source>1.7</source>
+            <target>1.7</target>
             <optimize>true</optimize>
             <showDeprecation>true</showDeprecation>
             <showWarnings>true</showWarnings>
@@ -200,7 +200,7 @@
   		<scope>test</scope>
   	</dependency>
   		<dependency>
-  			<groupId>com.googlecode</groupId>
+  			<groupId>com.esotericsoftware.kryo</groupId>
 			<artifactId>kryo</artifactId>
   		</dependency>
   		
@@ -214,9 +214,9 @@
   			<scope>test</scope>
   		</dependency>
   		<dependency>
-  			<groupId>com.googlecode</groupId>
-			<artifactId>kryo</artifactId>
-			<version>1.04</version>
+  			<groupId>com.esotericsoftware.kryo</groupId>
+  			<artifactId>kryo</artifactId>
+  			<version>2.24.0</version>
   		</dependency>
   	</dependencies>
   </dependencyManagement>
